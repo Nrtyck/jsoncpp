@@ -256,7 +256,12 @@ public:
   // The constant is hard-coded because some compiler have trouble
   // converting Value::maxUInt64 to a double correctly (AIX/xlC).
   // Assumes that UInt64 is a 64 bits integer.
+#if defined(_MSC_VER)
+  static double maxUInt64AsDouble ;
+  #else
   static JSONCPP_CONST double maxUInt64AsDouble = 18446744073709551615.0;
+#endif // DEBUG
+
 // Workaround for bug in the NVIDIAs CUDA 9.1 nvcc compiler
 // when using gcc and clang backend compilers.  CZString
 // cannot be defined as private.  See issue #486

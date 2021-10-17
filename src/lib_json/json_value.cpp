@@ -47,6 +47,10 @@ int JSON_API msvc_pre1900_c99_snprintf(char* outBuf, size_t size,
 
 #define JSON_ASSERT_UNREACHABLE assert(false)
 
+#ifdef JSON_NO_SORT_OUTPUT
+std::vector<std::string> insertnums;
+#endif // JSON_NO_SORT_OUTPUT
+
 namespace Json {
 
 // This is a walkaround to avoid the static initialization of Value::null.
@@ -333,6 +337,9 @@ bool Value::CZString::isStaticString() const {
 // //////////////////////////////////////////////////////////////////
 // //////////////////////////////////////////////////////////////////
 // //////////////////////////////////////////////////////////////////
+#ifdef _MSC_VER
+double Value::maxUInt64AsDouble = 18446744073709551615.0;
+#endif // _MSC_VER
 
 /*! \internal Default constructor initialization must be equivalent to:
  * memset( this, 0, sizeof(Value) )
@@ -811,8 +818,12 @@ bool Value::asBool() const {
     return value_.uint_ != 0;
   case realValue: {
     // According to JavaScript language zero or NaN is regarded as false
+#if JSONCPP_CXX_STD_11
     const int value_classification = std::fpclassify(value_.real_);
     return value_classification != FP_ZERO && value_classification != FP_NAN;
+#else
+    return value_.real_ != 0.0;
+#endif
   }
   default:
     break;
@@ -1047,6 +1058,11 @@ Value& Value::resolveReference(const char* key) {
   ObjectValues::value_type defaultValue(actualKey, nullSingleton());
   it = value_.map_->insert(it, defaultValue);
   Value& value = (*it).second;
+
+#if JSON_NO_SORT_OUTPUT // 按顺序插入vector insertnums中
+  insertnums.push_back(std::string((*it).first.data(), (*it).first.length()));
+#endif
+
   return value;
 }
 
@@ -1066,6 +1082,10 @@ Value& Value::resolveReference(char const* key, char const* end) {
   ObjectValues::value_type defaultValue(actualKey, nullSingleton());
   it = value_.map_->insert(it, defaultValue);
   Value& value = (*it).second;
+
+#if JSON_NO_SORT_OUTPUT // 按顺序插入vector insertnums中
+  insertnums.push_back(std::string((*it).first.data(), (*it).first.length()));
+#endif
   return value;
 }
 
@@ -1085,6 +1105,7 @@ Value const* Value::find(char const* begin, char const* end) const {
   CZString actualKey(begin, static_cast<unsigned>(end - begin),
                      CZString::noDuplication);
   ObjectValues::const_iterator it = value_.map_->find(actualKey);
+
   if (it == value_.map_->end())
     return JSONCPP_NULL;
   return &(*it).second;
@@ -1217,7 +1238,7 @@ bool Value::removeIndex(ArrayIndex index, Value* removed) {
   }
   // erase the last one ("leftover")
   CZString keyLast(oldSize - 1);
-  ObjectValues::iterator itLast = value_.map_->find(keyLast);
+    ObjectValues::iterator itLast = value_.map_->find(keyLast);
   value_.map_->erase(itLast);
   return true;
 }
@@ -1243,8 +1264,18 @@ Value::Members Value::getMemberNames() const {
   members.reserve(value_.map_->size());
   ObjectValues::const_iterator it = value_.map_->begin();
   ObjectValues::const_iterator itEnd = value_.map_->end();
+#if JSON_NO_SORT_OUTPUT // 按插入顺序输出
+  unsigned int idx = 0;
+#endif
+
   for (; it != itEnd; ++it) {
-    members.push_back(String((*it).first.data(), (*it).first.length()));
+#if JSON_NO_SORT_OUTPUT // 按插入顺序输出
+    members.push_back(insertnums[idx]);
+    idx++;
+
+#else
+    members.push_back(std::string((*it).first.data(), (*it).first.length()));
+#endif
   }
   return members;
 }

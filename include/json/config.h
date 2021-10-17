@@ -31,6 +31,11 @@
 #define JSON_USE_NULLREF 1
 #endif
 
+#ifndef JSON_NO_SORT_OUTPUT
+#define JSON_NO_SORT_OUTPUT 1
+#endif // !JSON_NO_SORT_OUTPUT
+
+
 /// If defined, indicates that the source file is amalgamated
 /// to prevent private header inclusion.
 /// Remarks: it is automatically defined in the generated amalgamated header.
@@ -101,6 +106,12 @@ extern JSON_API int msvc_pre1900_c99_snprintf(char* outBuf, size_t size,
 #define JSONCPP_NOEXCEPT throw()
 #define JSONCPP_OVERRIDE
 #define JSONCPP_MOVE(value) value
+
+#if defined(JSONCPP_OP_EXPLICIT) && defined(_MSC_VER)
+#undef JSONCPP_OP_EXPLICIT
+#define JSONCPP_OP_EXPLICIT
+#endif // JSONCPP_OP_EXPLICIT
+
 #endif
 
 // Define *deprecated* attribute
