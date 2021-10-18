@@ -47,10 +47,6 @@ int JSON_API msvc_pre1900_c99_snprintf(char* outBuf, size_t size,
 
 #define JSON_ASSERT_UNREACHABLE assert(false)
 
-#ifdef JSON_NO_SORT_OUTPUT
-std::vector<std::string> insertnums;
-#endif // JSON_NO_SORT_OUTPUT
-
 namespace Json {
 
 // This is a walkaround to avoid the static initialization of Value::null.
@@ -443,6 +439,9 @@ Value::Value(Value&& other) {
 Value::~Value() {
   releasePayload();
   value_.uint_ = 0;
+#if JSON_NO_SORT_OUTPUT
+  delete sort_;
+#endif
 }
 
 Value& Value::operator=(const Value& other) {
@@ -471,6 +470,9 @@ void Value::swap(Value& other) {
   std::swap(comments_, other.comments_);
   std::swap(start_, other.start_);
   std::swap(limit_, other.limit_);
+#if JSON_NO_SORT_OUTPUT
+  std::swap(sort_, other.sort_);
+#endif
 }
 
 void Value::copy(const Value& other) {
@@ -902,6 +904,9 @@ void Value::clear() {
                       "in Json::Value::clear(): requires complex value");
   start_ = 0;
   limit_ = 0;
+#if JSON_NO_SORT_OUTPUT
+  sort_->clear();
+#endif // JSON_NO_SORT_OUTPUT
   switch (type()) {
   case arrayValue:
   case objectValue:
@@ -924,7 +929,17 @@ void Value::resize(ArrayIndex newSize) {
     this->operator[](newSize - 1);
   else {
     for (ArrayIndex index = newSize; index < oldSize; ++index) {
+#if JSON_NO_SORT_OUTPUT
+      ObjectValuesSort::iterator it =
+          std::find(sort_->begin(), sort_->end(), index);
+      if (it != sort_->end()) {
+        sort_->erase(it);
+      }
+#endif // JSON_NO_SORT_OUTPUT  
+
       value_.map_->erase(index);
+ 
+
     }
     JSON_ASSERT(size() == newSize);
   }
@@ -942,7 +957,12 @@ Value& Value::operator[](ArrayIndex index) {
     return (*it).second;
 
   ObjectValues::value_type defaultValue(key, nullSingleton());
+#if JSON_NO_SORT_OUTPUT
+  sort_->push_back(key);
+#endif // JSON_NO_SORT_OUTPUT
   it = value_.map_->insert(it, defaultValue);
+
+
   return (*it).second;
 }
 
@@ -979,6 +999,10 @@ void Value::initBasic(ValueType type, bool allocated) {
   comments_ = Comments();
   start_ = 0;
   limit_ = 0;
+
+#if JSON_NO_SORT_OUTPUT
+  sort_ = new ObjectValuesSort();
+#endif // JSON_NO_SORT_OUTPUT
 }
 
 void Value::dupPayload(const Value& other) {
@@ -1038,6 +1062,10 @@ void Value::dupMeta(const Value& other) {
   comments_ = other.comments_;
   start_ = other.start_;
   limit_ = other.limit_;
+
+#if JSON_NO_SORT_OUTPUT
+  sort_ = new ObjectValuesSort(*other.sort_);
+#endif // JSON_NO_SORT_OUTPUT
 }
 
 // Access an object value by name, create a null member if it does not exist.
@@ -1060,9 +1088,9 @@ Value& Value::resolveReference(const char* key) {
   Value& value = (*it).second;
 
 #if JSON_NO_SORT_OUTPUT // 按顺序插入vector insertnums中
-  insertnums.push_back(std::string((*it).first.data(), (*it).first.length()));
+  sort_->push_back((*it).first);
 #endif
-
+  
   return value;
 }
 
@@ -1084,7 +1112,7 @@ Value& Value::resolveReference(char const* key, char const* end) {
   Value& value = (*it).second;
 
 #if JSON_NO_SORT_OUTPUT // 按顺序插入vector insertnums中
-  insertnums.push_back(std::string((*it).first.data(), (*it).first.length()));
+  sort_->push_back((*it).first);
 #endif
   return value;
 }
@@ -1199,6 +1227,16 @@ bool Value::removeMember(const char* begin, const char* end, Value* removed) {
     return false;
   if (removed)
     *removed = JSONCPP_MOVE(it->second);
+
+#if JSON_NO_SORT_OUTPUT // 按顺序插入vector insertnums中
+  ObjectValuesSort::iterator it1 =
+      std::find(sort_->begin(), sort_->end(),
+                                  it->first);
+  if (it1 != sort_->end()) {
+    sort_->erase(it1);
+  }
+#endif
+
   value_.map_->erase(it);
   return true;
 }
@@ -1266,17 +1304,15 @@ Value::Members Value::getMemberNames() const {
   ObjectValues::const_iterator itEnd = value_.map_->end();
 #if JSON_NO_SORT_OUTPUT // 按插入顺序输出
   unsigned int idx = 0;
-#endif
 
   for (; it != itEnd; ++it) {
-#if JSON_NO_SORT_OUTPUT // 按插入顺序输出
-    members.push_back(insertnums[idx]);
-    idx++;
-
-#else
-    members.push_back(std::string((*it).first.data(), (*it).first.length()));
-#endif
+    members.push_back((*sort_)[idx++].data());
   }
+#else
+  for (; it != itEnd; ++it) {
+    members.push_back(std::string((*it).first.data(), (*it).first.length()));
+  }
+#endif
   return members;
 }
 

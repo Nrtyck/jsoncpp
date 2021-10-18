@@ -310,6 +310,9 @@ private:
 
 public:
   typedef std::map<CZString, Value> ObjectValues;
+  #if JSON_NO_SORT_OUTPUT // 按顺序插入vector insertnums中
+  typedef std::vector<CZString> ObjectValuesSort;
+  #endif
 #endif // ifndef JSONCPP_DOC_EXCLUDE_IMPLEMENTATION
 
 public:
@@ -644,6 +647,9 @@ private:
     ObjectValues* map_;
   } value_;
 
+#if JSON_NO_SORT_OUTPUT // 按顺序插入vector insertnums中
+  ObjectValuesSort* sort_;
+#endif
   struct Bits {
     // Really a ValueType, but types should agree for bitfield packing.
     unsigned int value_type_ : 8;
