@@ -17,7 +17,7 @@
 #include <cstdint> // typedef int64_t, uint64_t
 #else
 #include <stddef.h>
-#include <stdint.h>
+//#include <stdint.h>
 #endif
 
 // If non-zero, the library uses exceptions to report bad input instead of C
