@@ -41,6 +41,7 @@ static inline String codePointToUTF8(unsigned int cp) {
 
   // based on description from http://en.wikipedia.org/wiki/UTF-8
 
+
   if (cp <= 0x7f) {
     result.resize(1);
     result[0] = static_cast<char>(cp);
@@ -48,7 +49,19 @@ static inline String codePointToUTF8(unsigned int cp) {
     result.resize(2);
     result[1] = static_cast<char>(0x80 | (0x3f & cp));
     result[0] = static_cast<char>(0xC0 | (0x1f & (cp >> 6)));
-  } else if (cp <= 0xFFFF) {
+  } // add by zaizj - begin
+  else if((cp > 0x4E00 && cp <= 0x9FA5) || (cp >= 0xF900 && cp <= 0xFA2D)) {
+    wchar_t src[2] = {0};
+    char dest[5] = {0};
+    src[0] = static_cast<wchar_t>(cp);
+    std::string currlocale = setlocale(LC_ALL, NULL);
+    setlocale(LC_ALL, "chs");
+    wcstombs_s(NULL, dest, 5, src, 2);
+    result = dest;
+    setlocale(LC_ALL, currlocale.c_str());
+  }
+  // add by zaizj - end 
+  else if (cp <= 0xFFFF) {
     result.resize(3);
     result[2] = static_cast<char>(0x80 | (0x3f & cp));
     result[1] = static_cast<char>(0x80 | (0x3f & (cp >> 6)));
